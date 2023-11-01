@@ -9,7 +9,10 @@ using UnityEngine.AI;
 public class PlayerController : MonoBehaviour
 {
     [SerializeField] public int toolLevel = 1;
-    [SerializeField, Tooltip("3D курсор направления движения")] private GameObject moveTargetCursor;
+    [SerializeField] public GameObject toolAnchor;
+    [SerializeField] public GameObject[] toolsOnLevelPrefabs = new GameObject[4];
+
+    [SerializeField, Tooltip("3D курсор направления движения (при надобности)")] private GameObject moveTargetCursor;
     [SerializeField, Range(0f, 10f)] private float selectedOutlineWidth = 2f;
     [SerializeField] private LayerMask RaycastLayers;
 
@@ -20,12 +23,14 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject[] stations;
     [SerializeField] private string[] selectedStationTooltipText;
 
+    private bool _canMove = true;
     private string _selectedStation;
     private Animator _anim;
     private NavMeshAgent _agent;
     private Outline _currentOutline;
     private StationsScript _currentStation;
 
+    private GameObject _currentTool;
     private bool _justRun =false;
     private bool _outlineActive = false; // Переменная для активации / деактивации внешней обводки объектов при наведении / снятии курсора.
     private bool _runToStation = false;  // Переменная, необходимая для отслеживания достижения игроком рабочего места какой-либо станции.
@@ -34,18 +39,26 @@ public class PlayerController : MonoBehaviour
     {
         _anim = GetComponent<Animator>();
         _agent = GetComponent<NavMeshAgent>();
+        _currentTool = Instantiate(toolsOnLevelPrefabs[toolLevel - 1], toolAnchor.transform);
     }
 
     void Update()
     {
-        OnPathCompleted();
-        RaycastOutline();
-        TooltipWork();
-        if (Input.GetMouseButtonDown(1))
+        if (_canMove)
         {
-            MouseSelectPosition();
+            OnPathCompleted();
+            RaycastOutline();
+            TooltipWork();
+
+            if (Input.GetMouseButtonDown(1))
+            {
+                MouseSelectPosition();
+            }
         }
+        else _canMove = _currentStation.GetPermissionToMove();
     }
+
+
     /// <summary>
     /// Выделение объектов, на которые наведен курсор, внешними линиями.
     /// </summary>
@@ -78,27 +91,6 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private void TooltipWork()
-    {
-        if (_outlineActive) // Подсказка включается при наведении курсора на станцию (станции подсвечиваются при наведении курсорв)
-        {
-            for (int i = 0; i < selectedStationTooltipText.Length; i++)
-            {
-                if (_selectedStation == stations[i].name)
-                {
-                    tooltipText.text = selectedStationTooltipText[i];
-                    break;
-                }
-            }
-            tooltipOnUI.gameObject.SetActive(true);
-            tooltipOnUI.position = Input.mousePosition;
-        }
-        else // Если станция не выделена подсветкой, подсказка выключается
-        {
-            tooltipOnUI.gameObject.SetActive(false);
-        }
-    }
-
     /// <summary>
     /// Выбор, с помощью нажатия ПКМ, позиции следования игрока
     /// </summary>
@@ -123,6 +115,28 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private void TooltipWork()
+    {
+        if (_outlineActive && _canMove) // Подсказка включается при наведении курсора на станцию (станции подсвечиваются при наведении курсорв) если игрок не взаимодействует со станциями
+        {
+            for (int i = 0; i < selectedStationTooltipText.Length; i++)
+            {
+                if (_selectedStation == stations[i].name)
+                {
+                    tooltipText.text = selectedStationTooltipText[i];
+                    break;
+                }
+            }
+            tooltipOnUI.gameObject.SetActive(true);
+            tooltipOnUI.position = Input.mousePosition;
+        }
+        else // Если станция не выделена подсветкой, подсказка выключается
+        {
+            tooltipOnUI.gameObject.SetActive(false);
+        }
+    }
+
+
     /// <summary>
     /// Движение игрока по земле (выключается работа игрока с какой-либо постройкой)
     /// </summary>
@@ -139,6 +153,11 @@ public class PlayerController : MonoBehaviour
         _anim.SetBool("IsRun", true);
     }
 
+
+    /// <summary>
+    /// Движение игрока к станции.
+    /// </summary>
+    /// <param name="station">Объект станции, к которой движется игроу</param>
     private void MovingToStations(GameObject station)
     {
         if (_currentStation != null) _currentStation.StationWork(false, toolLevel);
@@ -154,6 +173,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Метод, вызываемый когда игрок достиг цели
     private void OnPathCompleted()
     {
         if ((_justRun || _runToStation) && _agent.remainingDistance <= _agent.stoppingDistance)
@@ -161,6 +181,7 @@ public class PlayerController : MonoBehaviour
             if (_runToStation)
             {
                 _currentStation.StationWork(true, toolLevel);
+                _canMove = _currentStation.GetPermissionToMove();
                 _runToStation = false;
                 transform.rotation = _currentStation.GetWorkTransform().rotation;
 
@@ -190,5 +211,13 @@ public class PlayerController : MonoBehaviour
             _currentOutline.OutlineWidth = 0;
             _currentOutline = null;
         }
+    }
+
+    public void UpgradeTool(int toLevel)
+    {
+        toolLevel = toLevel;
+        Destroy(_currentTool);
+        _currentTool = Instantiate(toolsOnLevelPrefabs[toolLevel - 1], toolAnchor.transform);
+
     }
 }

@@ -4,20 +4,14 @@ using UnityEngine.AI;
 public class NPCController : MonoBehaviour
 {
     public int toolLevel = 1;
-
     private Animator _anim;
     private NavMeshAgent _agent;
     private StationsScript _station;
-
-    private void Start()
-    {
-        _anim = GetComponent<Animator>();
-        _agent = GetComponent<NavMeshAgent>();
-    }
+    private bool _isMove = false;
 
     private void Update()
     {
-        OnPathCompleted();
+        if (_isMove) OnPathCompleted();
     }
 
     private void OnPathCompleted()
@@ -27,15 +21,21 @@ public class NPCController : MonoBehaviour
             _anim.SetBool("IsRun", false);
             _anim.SetBool("IsWork", true);
 
-            transform.rotation = _station.GetWorkTransform().rotation;           
+            _isMove = false;
+            transform.rotation = _station.GetWorkTransform().rotation;
+            _station.StationWork(true, toolLevel);
         }
     }
 
     public void SetStationTarget(StationsScript station)
     {
+        _anim = GetComponent<Animator>();
+        _agent = GetComponent<NavMeshAgent>();
+
         _anim.SetBool("IsRun", true);
         _station = station;
         _agent.destination = _station.GetWorkPosition();
+        _isMove = true;
     }
 
 }

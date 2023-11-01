@@ -14,8 +14,8 @@ public class StationsScript : MonoBehaviour
     [SerializeField] private bool isSawmill = false;
     [SerializeField] private bool isWorkshop = false;
     [SerializeField] private bool isSorter = false;
-    [SerializeField] private bool isFurnace = false;
-    [SerializeField] private bool isFactory = false;
+    //[SerializeField] private bool isFurnace = false;
+    //[SerializeField] private bool isFactory = false;
 
 
     // Настройки вывода панели взаимодействия со станцией
@@ -122,11 +122,30 @@ public class StationsScript : MonoBehaviour
     [Space]
     [Header("Workshop Settings")]
     [Space]
-    [SerializeField, Tooltip("Счетчик стоимости")] private TextMeshProUGUI workshopCostCount;
+    [SerializeField] private UpgradeButton rockUpButton;
+    [SerializeField] private UpgradeButton sawmillUpButton;
+    [SerializeField] private UpgradeButton toolUpButton;
 
+    [SerializeField, Tooltip("Счетчик стоимости улучшения")]
+    public TextMeshProUGUI upgradeCostText;
+
+    [SerializeField, Tooltip("Окно ошибки, если игрок пытается применить улучшение при недостаточном количестве денег")] 
+    private GameObject errorPanel;
+
+    [SerializeField, Tooltip("Скрипт спавна ботов")]
+    public NPCSpawn npcSpawner;
+
+    [HideInInspector] public float _currentUpgradeCost = 0; // Текущее значение стоимости улучшения
+    [HideInInspector] public int _currentUpgradeToolLevel; // Текущий предлагаемый уровень улучшения инструмента
+    [HideInInspector] public List<StationsScript> _currentUpgradeStations; // Текущие предлагаемые улучшения станций
+
+
+    [HideInInspector] public int workLevel = 1; // Уровень добычи.
+
+    private int _workFactor = 0; // Параметр множителя работы. Зависит от количества работаемых на станции людей. (Прибавляется или вычитается при вызове метода StationWork)
     private ResourceStorage _storage; // Инвентарь игрока
     private GameObject _player;
-    private int _workLevel = 1; // Уровень добычи.
+    private PlayerController _playerController;
     private bool _working = false; // Работа станции. Если ИСТИНА - то работает таймер CycleTimer.
     private float _timer = 0; // Время текущего цикла работы.
 
@@ -134,6 +153,7 @@ public class StationsScript : MonoBehaviour
     {
         _player = GameObject.FindGameObjectWithTag("Player");
         _storage = _player.GetComponent<ResourceStorage>();
+        _playerController = _player.GetComponent<PlayerController>();
     }
 
     void Update()
@@ -161,16 +181,24 @@ public class StationsScript : MonoBehaviour
         }
     }
 
+
+    // Когда станция завершает работу (срабатывает CycleTimer), она выдает заданный ресурс, либо выполняет заданные действия.
     private void WorkEnded()
     {
         if (isRock)
         {
-            RockMining();
+            for (int i = 0; i < _workFactor; i++)
+            {
+                RockMining();
+            }
         }
 
         else if (isSawmill)
         {
-            ResourceOut(woodProductionFactorOnLevel[_workLevel] * normalResourceDrop);
+            for (int i = 0; i < _workFactor; i++)
+            {
+                ResourceOut(woodProductionFactorOnLevel[workLevel] * normalResourceDrop);
+            }
         }
 
         else if (isSorter)
@@ -188,42 +216,6 @@ public class StationsScript : MonoBehaviour
         else ResourceOut();
     }
 
-    private void RockMining()
-    {
-        float rare = 1;
-
-        if (_workLevel == 1)
-        {
-            ResourceOut(0, rare);
-            ResourceOut(1, rare);
-            rare *= oreRareFactor;
-            ResourceOut(2, rare);
-        }
-
-        else if (_workLevel == 2)
-        {
-            ResourceOut(0, rare);
-            ResourceOut(1, rare);
-            rare *= oreRareFactor;
-            ResourceOut(2, rare);
-            ResourceOut(3, rare);
-            ResourceOut(4, rare);
-        }
-
-        else if (_workLevel >= 3)
-        {
-            ResourceOut(0, rare);
-            ResourceOut(1, rare);
-            rare *= oreRareFactor;
-            ResourceOut(2, rare);
-            ResourceOut(3, rare);
-            ResourceOut(4, rare);
-            rare *= oreRareFactor;
-            ResourceOut(5, rare);
-            rare *= oreRareFactor;
-            ResourceOut(6, rare);
-        }
-    }
 
     public Transform GetWorkTransform()
     {
@@ -237,7 +229,7 @@ public class StationsScript : MonoBehaviour
 
     public void StationWork(bool isWork, int level)
     {
-        _workLevel = level;
+        workLevel = level;
 
         // Если игрок подошел к станции и работает с ней:
         if (isWork)
@@ -272,7 +264,9 @@ public class StationsScript : MonoBehaviour
                     workTimerImage.gameObject.SetActive(true);
                 _working = true;
             }
+            _workFactor++;
         }
+
         // Если игрок ушел от станции:
         else
         {
@@ -289,11 +283,105 @@ public class StationsScript : MonoBehaviour
                     ReturnDefaultSortValues();
                 }
 
+                if (isWorkshop)
+                {
+                    ReturnUpdateSettings();
+                }
+
                 _timer = 0;
                 _working = false;
             }
+
+            if (mainPanel != null) mainPanel.SetActive(false);
+
+            _workFactor--;
         }
     }
+
+
+    // Получить разрешение на перемещение (Если при работе со станцией не открывается меню взаимодействия, возвращает true. Иначе - false).
+    public bool GetPermissionToMove()
+    {
+        if (mainPanel != null)
+        {
+            return !mainPanel.activeSelf;
+        }
+        else return true;
+    }
+
+
+
+    #region Workshop Upgrade Methods
+    public void SetUpgradeStation(float cost, StationsScript station)
+    {
+        _currentUpgradeCost += cost;
+
+        if (cost < 0)
+        {
+            _currentUpgradeStations.Remove(station);
+        }
+        else _currentUpgradeStations.Add(station);
+
+        upgradeCostText.text = _currentUpgradeCost.ToString("#.#");
+    }
+
+    public void SetUpgradeToolLevel(float cost, int inc)
+    {
+        _currentUpgradeCost += cost;
+        _currentUpgradeToolLevel += inc;
+
+        upgradeCostText.text = _currentUpgradeCost.ToString("#.#");
+    }
+
+    public void ApplyUpgrade()
+    {
+        if ((_storage.GetCoins() - _currentUpgradeCost) >= 0) // Если хватает денег, происходит улучшение
+        {
+            if (_currentUpgradeToolLevel > _playerController.toolLevel)
+            {
+                _playerController.UpgradeTool(_currentUpgradeToolLevel);
+                workLevel = _currentUpgradeToolLevel;
+            }
+
+            if (_currentUpgradeStations != null)
+            {
+                if (_currentUpgradeStations.Count > 0)
+                {
+                    foreach (var item in _currentUpgradeStations)
+                    {
+                        npcSpawner.Spawn(item);
+                    }
+                }
+            }
+            _storage.AddCoins(-_currentUpgradeCost);
+
+            if (_currentUpgradeToolLevel > _playerController.toolsOnLevelPrefabs.Length) Destroy(toolUpButton.gameObject); // Если уровень инструмента максимальный - улучшение невозможно.
+
+            ReturnUpdateSettings();
+            mainPanel.SetActive(false);
+            _working = false;
+        }
+
+        else // Иначе выводится окно с ошибкой о нехватке денег
+        {
+            errorPanel.SetActive(true);
+        }
+    }
+
+    public void ReturnUpdateSettings()
+    {
+        _currentUpgradeStations.Clear();
+        _currentUpgradeCost = 0;
+        _currentUpgradeToolLevel = 0;
+
+        rockUpButton.isActiveUpgrade = false;
+        sawmillUpButton.isActiveUpgrade = false;
+        if (toolUpButton != null) toolUpButton.isActiveUpgrade = false;
+
+        upgradeCostText.text = "0";
+    }
+    #endregion
+
 
 
     #region Resource Out Methods
@@ -315,7 +403,7 @@ public class StationsScript : MonoBehaviour
                 resource = Instantiate(outResourcePrefab, gameObject.transform);
             }
 
-            valueWithRare *= Random.Range(0, normalResourceDrop * miningFactorOnLevel[_workLevel - 1]);
+            valueWithRare *= Random.Range(0, normalResourceDrop * miningFactorOnLevel[workLevel - 1]);
             ResourceObject resSc = resource.GetComponent<ResourceObject>();
 
             if (resSc != null)
@@ -383,6 +471,47 @@ public class StationsScript : MonoBehaviour
                     resSc.AddForceToResourceOut(forceVec);
                 }
             }
+        }
+    }
+    #endregion
+
+
+
+    #region Rock Mining Method
+    private void RockMining()
+    {
+        float rare = 1;
+
+        if (workLevel == 1)
+        {
+            ResourceOut(0, rare);
+            ResourceOut(1, rare);
+            rare *= oreRareFactor;
+            ResourceOut(2, rare);
+        }
+
+        else if (workLevel == 2)
+        {
+            ResourceOut(0, rare);
+            ResourceOut(1, rare);
+            rare *= oreRareFactor;
+            ResourceOut(2, rare);
+            ResourceOut(3, rare);
+            ResourceOut(4, rare);
+        }
+
+        else if (workLevel >= 3)
+        {
+            ResourceOut(0, rare);
+            ResourceOut(1, rare);
+            rare *= oreRareFactor;
+            ResourceOut(2, rare);
+            ResourceOut(3, rare);
+            ResourceOut(4, rare);
+            rare *= oreRareFactor;
+            ResourceOut(5, rare);
+            rare *= oreRareFactor;
+            ResourceOut(6, rare);
         }
     }
     #endregion

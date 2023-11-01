@@ -30,9 +30,12 @@ public class ResourceObject : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.CompareTag("Player"))
+        if (other.gameObject.CompareTag("Player") || other.gameObject.CompareTag("NPC"))
         {
-            _storage = other.GetComponent<ResourceStorage>();
+            if (other.gameObject.CompareTag("NPC"))
+                _storage = GameObject.FindWithTag("Player").GetComponent<ResourceStorage>();
+
+            else _storage = other.GetComponent<ResourceStorage>();
 
             if (!addToPlayerHandsOrStorage)
             {

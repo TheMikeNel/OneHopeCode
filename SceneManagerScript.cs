@@ -19,4 +19,9 @@ public class SceneManagerScript : MonoBehaviour
     {
         Application.Quit();
     }
+
+    public void TimeScaling(float scale)
+    {
+        Time.timeScale = scale;
+    }
 }
