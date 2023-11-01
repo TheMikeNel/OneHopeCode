@@ -142,7 +142,7 @@ public class StationsScript : MonoBehaviour
 
     [HideInInspector] public int workLevel = 1; // Уровень добычи.
 
-    private int _workFactor = 0; // Параметр множителя работы. Зависит от количества работаемых на станции людей. (Прибавляется или вычитается при вызове метода StationWork)
+    private int _workFactor = 1; // Параметр множителя работы. Зависит от количества работаемых на станции людей. (Прибавляется или вычитается при вызове метода StationWork)
     private ResourceStorage _storage; // Инвентарь игрока
     private GameObject _player;
     private PlayerController _playerController;
@@ -227,7 +227,7 @@ public class StationsScript : MonoBehaviour
         return workPosition.transform.position;
     }
 
-    public void StationWork(bool isWork, int level)
+    public void StationWork(bool isWork, int level, string workerTag)
     {
         workLevel = level;
 
@@ -264,7 +264,8 @@ public class StationsScript : MonoBehaviour
                     workTimerImage.gameObject.SetActive(true);
                 _working = true;
             }
-            _workFactor++;
+            if (workerTag == "NPC")
+                _workFactor++;
         }
 
         // Если игрок ушел от станции:
@@ -293,8 +294,6 @@ public class StationsScript : MonoBehaviour
             }
 
             if (mainPanel != null) mainPanel.SetActive(false);
-
-            _workFactor--;
         }
     }
 

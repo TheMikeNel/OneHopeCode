@@ -23,7 +23,7 @@ public class NPCController : MonoBehaviour
 
             _isMove = false;
             transform.rotation = _station.GetWorkTransform().rotation;
-            _station.StationWork(true, toolLevel);
+            _station.StationWork(true, toolLevel, tag);
         }
     }
 

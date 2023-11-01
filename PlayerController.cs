@@ -146,7 +146,7 @@ public class PlayerController : MonoBehaviour
         _justRun = true;
         _runToStation = false;
 
-        if (_currentStation != null) _currentStation.StationWork(false, toolLevel);
+        if (_currentStation != null) _currentStation.StationWork(false, toolLevel, tag);
 
         _agent.destination = target;
         _anim.SetBool("IsWork", false);
@@ -160,7 +160,7 @@ public class PlayerController : MonoBehaviour
     /// <param name="station">Объект станции, к которой движется игроу</param>
     private void MovingToStations(GameObject station)
     {
-        if (_currentStation != null) _currentStation.StationWork(false, toolLevel);
+        if (_currentStation != null) _currentStation.StationWork(false, toolLevel, tag);
 
         _currentStation = station.GetComponent<StationsScript>();
 
@@ -180,7 +180,7 @@ public class PlayerController : MonoBehaviour
         {
             if (_runToStation)
             {
-                _currentStation.StationWork(true, toolLevel);
+                _currentStation.StationWork(true, toolLevel, tag);
                 _canMove = _currentStation.GetPermissionToMove();
                 _runToStation = false;
                 transform.rotation = _currentStation.GetWorkTransform().rotation;
