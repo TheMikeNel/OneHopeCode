@@ -28,7 +28,7 @@ public class StationsScript : MonoBehaviour
     private Image selectedResourceImage;
 
 
-    // Настройки, действующие на все типы производственных станций
+    // Настройки, действующие на ВСЕ типы производственных станций
     [Space]
     [Header("Main Settings")]
     [Space]
@@ -60,7 +60,7 @@ public class StationsScript : MonoBehaviour
     private Vector3 maxForce = Vector3.up;
 
 
-    // Настройки, действующие на станцию добычи руды
+    // Настройки, действующие на станцию ДОБЫЧИ РУДЫ
     [Space] 
     [Header("Mining Rock Settings")]
     [Space]
@@ -74,7 +74,7 @@ public class StationsScript : MonoBehaviour
     private float oreRareFactor = 0.85f;
 
 
-    // Настройки, действующие на станцию добычи дерева
+    // Настройки, действующие на станцию ДОБЫЧИ ДЕРЕВА
     [Space]
     [Header("Wood Settings")]
     [Space]
@@ -82,28 +82,46 @@ public class StationsScript : MonoBehaviour
     private float[] woodProductionFactorOnLevel = new float[] {1, 2, 4, 7};
 
 
-    // Настройки, действующие на станцию сортировки
+    // Настройки, действующие на станцию СОРТИРОВКИ
     [Space]
     [Header("Sort Settings")]
     [Space]
-    private string _resSortType;
-    private int _resSortInd;
-    private int _resSortValue;
-
     [SerializeField, Tooltip("Счетчик количества сортируемых ресурсов")]
     private TextMeshProUGUI countSortText;
+    private string _resSortType; // Хранение типа выбранного для сортировки ресурса
+    private int _resSortInd; // Хранение индекса выбранного для сортировки ресурса
+    private int _resSortValue; // Хранение количества ресурсов, подготавливаемых к сортировке
+
+
+    // Настройки, действующие на станцию ДОСТАВКИ
+    [Space]
+    [Header("Delivery Settings")]
+    [Space]
+    [SerializeField, Tooltip("Панель отправляемых ресурсов с настроенной Grid")] 
+    private GameObject deliveryResourcesPanel;
+
+    [SerializeField, Tooltip("Индикатор итоговой выручки")]
+    private TextMeshProUGUI deliveryCostText;
+
+    [SerializeField, Tooltip("Префаб иконки отправляемого ресурса (для отображения отправляемых ресурсов)")]
+    private GameObject deliveryResourceIconPrefab;
+
+    [SerializeField, Tooltip("Курьер")]
+    private GameObject duck;
+
+    private ResourceObject[] _sortPacksInPlayerHands;
+    private float _deliveryCost;
+
 
 
     private ResourceStorage _storage;
-    private ResourcePanelEvents _resourcePanelEvents;
     private GameObject _player;
-    private int _workLevel = 1;
-    private bool _working = false;
-    private float _timer = 0;
+    private int _workLevel = 1; // Уровень добычи.
+    private bool _working = false; // Работа станции. Если ИСТИНА - то работает таймер CycleTimer.
+    private float _timer = 0; // Время текущего цикла работы.
 
     private void Start()
     {
-        _resourcePanelEvents = FindFirstObjectByType<ResourcePanelEvents>();
         _player = GameObject.FindGameObjectWithTag("Player");
         _storage = _player.GetComponent<ResourceStorage>();
     }
@@ -140,18 +158,24 @@ public class StationsScript : MonoBehaviour
             RockMining();
         }
 
-        if (isSawmill)
+        else if (isSawmill)
         {
             ResourceOut(woodProductionFactorOnLevel[_workLevel] * normalResourceDrop);
         }
 
-        if (isSorter)
+        else if (isSorter)
         {
+            Debug.Log("SorterOk");
             SortResourceOut();
-
             _working = false;
         }
 
+        else if (isDelivery)
+        {
+            workTimerImage.fillAmount = 0f;
+            workTimerImage.gameObject.SetActive(false);
+            _working = false;
+        }
         else ResourceOut();
     }
 
@@ -201,6 +225,7 @@ public class StationsScript : MonoBehaviour
     {
         _workLevel = level;
 
+        // Если игрок подошел к станции и работает с ней:
         if (isWork)
         {
             if (isSorter)
@@ -209,10 +234,19 @@ public class StationsScript : MonoBehaviour
                 countSortText.text = _resSortValue.ToString();
                 mainPanel.SetActive(true);
             }
-            if (isDelivery)
-            {
 
+            else if (isDelivery)
+            {
+                mainPanel.SetActive(true);
+
+                if (_storage.playerHands.GetComponentInChildren<ResourceObject>() != null)
+                {
+                    _sortPacksInPlayerHands = _storage.playerHands.GetComponentsInChildren<ResourceObject>();
+
+                    SetDeliveryStats();
+                }
             }
+
             else
             {
                 if (workTimerImage != null)
@@ -220,6 +254,7 @@ public class StationsScript : MonoBehaviour
                 _working = true;
             }
         }
+        // Если игрок ушел от станции:
         else
         {
             if (workTimerImage != null)
@@ -263,7 +298,7 @@ public class StationsScript : MonoBehaviour
 
             if (resSc != null)
             {
-                resSc.SetResourceValue(index, valueWithRare);
+                resSc.SetResourceValues(index, valueWithRare);
 
                 if (addRandomForceToResourceInOut)
                 {
@@ -294,7 +329,7 @@ public class StationsScript : MonoBehaviour
 
             if (resSc != null)
             {
-                resSc.SetResourceValue(value);
+                resSc.SetResourceValues(value);
 
                 if (addRandomForceToResourceInOut)
                 {
@@ -338,11 +373,11 @@ public class StationsScript : MonoBehaviour
     /// </summary>
     public void DoSort()
     {
-        if (workTimerImage != null)
-            workTimerImage.gameObject.SetActive(true);
-
-        if (_resSortValue >= 10)
+        if (_resSortValue > 0)
         {
+            if (workTimerImage != null)
+                workTimerImage.gameObject.SetActive(true);
+
             _working = true;
         }
     }
@@ -352,6 +387,7 @@ public class StationsScript : MonoBehaviour
     /// </summary>
     private void SortResourceOut()
     {
+        Debug.Log("OutResource");
         if (outResourcePrefab != null)
         {
             GameObject resource;
@@ -363,7 +399,7 @@ public class StationsScript : MonoBehaviour
 
             if (resSc != null)
             {
-                resSc.SetResourceValue(_resSortType, _resSortInd, _resSortValue);
+                resSc.SetResourceValues(_resSortType, _resSortInd, _resSortValue);
 
                 _storage.AddResourceByType(_resSortType, _resSortInd, _resSortValue * -1);
 
@@ -395,7 +431,7 @@ public class StationsScript : MonoBehaviour
     }
 
     /// <summary>
-    /// Получение выбранного в инвентаре ресурса, с которым будет происходить взаимодействие
+    /// Получение выбранного в инвентаре ресурса, с которым будет происходить взаимодействие (Вызывается в ResourcePanelEvents на EventSystem, при нажатии на кнопки ресурсов).
     /// </summary>
     /// <param name="image">Изображение ресурса, для вывода в окно отображения активного ресурса в станции</param>
     /// <param name="type">Тип ресурса (Ore, Ingot, Product). Задается тегом объекта.</param>
@@ -408,12 +444,63 @@ public class StationsScript : MonoBehaviour
     }
 
     /// <summary>
-    /// Возврат значений в стандартное состояние
+    /// Возврат значений, заданных при сортировке, в стандартное состояние
     /// </summary>
     public void ReturnDefaultSortValues()
     {
         _resSortValue = 0;
         countSortText.text = "0";
+    }
+    #endregion
+
+
+
+    #region Delivery
+    private void SetDeliveryStats()
+    {
+        Debug.Log("Length packs: " + _sortPacksInPlayerHands.Length);
+
+        for (int i = 0; i < _sortPacksInPlayerHands.Length; i++)
+        {
+            GameObject icon = Instantiate(deliveryResourceIconPrefab, deliveryResourcesPanel.transform);
+
+            ResourceObject resObj = _sortPacksInPlayerHands[i];
+            float cost = Costs.CostOfResources.GetCostOfResource(resObj.typeOfResource, resObj.index);
+
+            icon.GetComponent<DeliveryResourcePrefabSettings>().SetIcon((int)resObj.value, cost * (int)resObj.value, resObj.GetSprite());
+
+            _deliveryCost += cost * resObj.value;
+            deliveryCostText.text = _deliveryCost.ToString();
+        }
+    }
+
+    public void ResetDeliveryStats()
+    {
+        var icons = deliveryResourcesPanel.GetComponentsInChildren<Transform>();
+
+        foreach (var item in icons)
+        {
+            Destroy(item.gameObject);
+        }
+        _deliveryCost = 0;
+        deliveryCostText.text = _deliveryCost.ToString();
+    }
+
+    /// <summary>
+    /// Отправка ресурсов на продажу. Вызывается кнопкой "Отправить" в UI панели доставки.
+    /// </summary>
+    public void SendDelivery()
+    {
+        duck.GetComponent<DuckCourier>().SendCourier(workCycleTime, _deliveryCost);
+
+        foreach (ResourceObject item in _sortPacksInPlayerHands)
+        {
+            Destroy(item.gameObject);
+        }
+
+        mainPanel.SetActive(false);
+        workTimerImage.gameObject.SetActive(true);
+        _working = true;
     }
     #endregion
 }

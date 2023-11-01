@@ -12,14 +12,15 @@ public class ResourceObject : MonoBehaviour
     "Слитки: Сталь - 0, Бронза - 1, Алюминий - 2, Золото - 3.\n" +
     "Товары: Болты - 0, Трубы - 1, Каркасы - 2, Украшения - 3.\n" +
     "Тип ресурса определяется его тегом (Ore, Ingot, Product, Coin).")]
-    int index = 0;
+    public int index = 0;
 
-    [SerializeField, Tooltip("Тип ресурса (задается тегом")]
+    [SerializeField, Tooltip("Тип ресурса (задается тегом).")]
     public string typeOfResource;
 
     [SerializeField, Tooltip("Количество ресурса в одном экзкмпляре объекта.")]
-    float value = 1;
+    public float value = 1;
 
+    private Sprite _resourceSprite;
     private ResourceStorage _storage;
 
     private void OnEnable()
@@ -60,23 +61,39 @@ public class ResourceObject : MonoBehaviour
             }
             else
             {
-                Vector3.MoveTowards(transform.position, _storage.playerHandsPosition.transform.position, 0.1f);
+                Vector3.MoveTowards(transform.position, _storage.playerHands.transform.position, 0.1f);
                 gameObject.GetComponent<Rigidbody>().isKinematic = true;
-                transform.SetParent(_storage.playerHandsPosition.transform);
-                gameObject.transform.localRotation = _storage.playerHandsPosition.transform.localRotation;
-                gameObject.transform.localPosition = _storage.playerHandsPosition.transform.localPosition;
+                transform.SetParent(_storage.playerHands.transform);
+                gameObject.transform.localRotation = _storage.playerHands.transform.localRotation;
+                gameObject.transform.localPosition = _storage.playerHands.transform.localPosition;
 
             }
         }
     }
 
+    #region Перегрузки метода установки настроек ресурса
     /// <summary>
-    /// Установка настроек ресурса для его передачи в систему хранения.
+    /// Установка настроек ресурса.
+    /// </summary>
+    /// <param name="tag">Тип ресурса.</param>
+    /// <param name="resourceSprite">2D спрайт ресурса.</param>
+    /// <param name="resourceindex">Индекс ресурса в массиве системы хранения ресурсов.</param>
+    /// <param name="value">Количество ресурса в одном экзкмпляре объекта.</param>
+    public void SetResourceValues(string tag, int resourceindex, float value, Sprite resourceSprite)
+    {
+        _resourceSprite = resourceSprite;
+        typeOfResource = tag;
+        index = resourceindex;
+        this.value = value;
+    }
+
+    /// <summary>
+    /// Установка настроек ресурса.
     /// </summary>
     /// <param name="tag">Тип ресурса.</param>
     /// <param name="resourceindex">Индекс ресурса в массиве системы хранения ресурсов.</param>
     /// <param name="value">Количество ресурса в одном экзкмпляре объекта.</param>
-    public void SetResourceValue(string tag, int resourceindex, float value)
+    public void SetResourceValues(string tag, int resourceindex, float value)
     {
         typeOfResource = tag;
         index = resourceindex;
@@ -84,24 +101,25 @@ public class ResourceObject : MonoBehaviour
     }
 
     /// <summary>
-    /// Установка настроек ресурса для его передачи в систему хранения.
+    /// Установка настроек ресурса.
     /// </summary>
     /// <param name="resourceIndex">Индекс ресурса в массиве системы хранения ресурсов.</param>
     /// <param name="value">Количество ресурса в одном экзкмпляре объекта.</param>
-    public void SetResourceValue(int resourceIndex, float value) 
+    public void SetResourceValues(int resourceIndex, float value) 
     {
         index = resourceIndex;
         this.value = value; 
     }
 
     /// <summary>
-    /// Установка настроек ресурса для его передачи в систему хранения.
+    /// Установка настроек ресурса.
     /// </summary>
     /// <param name="value">Количество ресурса в одном экзкмпляре объекта.</param>
-    public void SetResourceValue(float value) 
+    public void SetResourceValues(float value) 
     { 
         this.value = value; 
     }
+    #endregion
 
     /// <summary>
     /// Применить направленную силу к объекту
@@ -110,5 +128,22 @@ public class ResourceObject : MonoBehaviour
     public void AddForceToResourceOut(Vector3 forceVector)
     {
         gameObject.GetComponent<Rigidbody>().AddForce(forceVector, ForceMode.Impulse);
+    }
+
+    /// <summary>
+    /// Возвращает 2D спрайт текущего ресурса.
+    /// </summary>
+    /// <returns></returns>
+    public Sprite GetSprite()
+    {
+        if (_resourceSprite != null)
+        {
+            return _resourceSprite;
+        }
+
+        else
+        {
+            return FindFirstObjectByType<ResourcePanelEvents>().GetResourceSprite(typeOfResource, index);
+        }
     }
 }

@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,19 +5,22 @@ public class ResourcePanelEvents : MonoBehaviour
 {
     [SerializeField] private StationsScript sortStation;
 
-    [SerializeField] private GameObject[] oreButton = new GameObject[7];
-    [SerializeField] private GameObject[] ingotButton = new GameObject[4];
-    [SerializeField] private GameObject[] productButton = new GameObject[4];
+    [SerializeField, Tooltip(" нопки сырь€ на панели игрового интерфейса (должны соответствовать индексации в системе хранени€!).")] 
+    private GameObject[] oreButton = new GameObject[7];
 
-    private string _activeResType; 
+    [SerializeField, Tooltip(" нопки слитков на панели игрового интерфейса (должны соответствовать индексации в системе хранени€!).")] 
+    private GameObject[] ingotButton = new GameObject[4];
+
+    [SerializeField, Tooltip(" нопки товаров на панели игрового интерфейса (должны соответствовать индексации в системе хранени€!).")] 
+    private GameObject[] productButton = new GameObject[4];
+
+    private string _activeResType;
     private Image _activeResImage;
     private int _activeResIndex;
     private GameObject _currentResButton = null;
 
     public void SelectActiveResource(GameObject resourceImageObject)
     {
-        Debug.Log(resourceImageObject.name + " ResourceSelected");
-
         if (resourceImageObject != _currentResButton)
         {
             for (int j = 0; j < oreButton.Length; j++)
@@ -68,7 +70,6 @@ public class ResourcePanelEvents : MonoBehaviour
             sortStation.ReturnDefaultSortValues();
             sortStation.SetSettingsOfSelectedResource(_activeResImage, _activeResType, _activeResIndex);
         }
-        Debug.Log($"Resource Type: {_activeResType};  Index: {_activeResIndex}.");
     }
 
     public int GetActiveResourceIndexInStorage()
@@ -84,5 +85,22 @@ public class ResourcePanelEvents : MonoBehaviour
     public Image GetActiveResourceImage()
     {
         return _activeResImage;
+    }
+
+    public Sprite GetResourceSprite(string resourceType, int resourceIndex)
+    {
+        switch (resourceType)
+        {
+            case "Ore":
+                return oreButton[resourceIndex].GetComponent<Sprite>();
+
+            case "Ingot":
+                return ingotButton[resourceIndex].GetComponent<Sprite>();
+
+            case "Product":
+                return productButton[resourceIndex].GetComponent<Sprite>();
+
+            default: return null;
+        }
     }
 }

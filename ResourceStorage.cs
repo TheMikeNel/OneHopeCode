@@ -1,23 +1,19 @@
-using System;
 using TMPro;
 using UnityEngine;
 
 public class ResourceStorage : MonoBehaviour
 {
-    [SerializeField] public GameObject playerHandsPosition;
+    [SerializeField] public GameObject playerHands;
     [SerializeField] private float woodValue = 0f;
     [SerializeField] private TextMeshProUGUI woodIndicator;
 
     [SerializeField] private float[] oreValue = new float[] { 0, 0, 0, 0, 0, 0, 0 };
-    [SerializeField] public string[] oreName = new string[] {"Rock", "Coal", "Iron", "Copper", "Tin", "Boxit", "GoldOre"};
     [SerializeField] private TextMeshProUGUI[] oreIndicator = new TextMeshProUGUI[7];
 
     [SerializeField] private float[] ingotValue = new float[] { 0, 0, 0, 0 };
-    [SerializeField] public string[] ingotName = new string[] { "Steel", "Bronze", "Aluminum", "GoldIngot" };
     [SerializeField] private TextMeshProUGUI[] ingotIndicator = new TextMeshProUGUI[4];
 
     [SerializeField] private float[] productValue = new float[] { 0, 0, 0, 0 };
-    [SerializeField] public string[] productName = new string[] { "Bolt", "Pipe", "Frame", "Jewelry" };
     [SerializeField] private TextMeshProUGUI[] productIndicator = new TextMeshProUGUI[4];
 
     public float coins = 0;
