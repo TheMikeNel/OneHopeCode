@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -49,6 +51,9 @@ public class StationsScript : MonoBehaviour
 
     [SerializeField, Tooltip("Префаб выходного ресурса.")] 
     private GameObject outResourcePrefab;
+
+    [SerializeField, Tooltip("Контейнер кнопок ресурсов инвентаря")]
+    private ResourcePanelEvents panelEvents;
 
     [SerializeField, Tooltip("Применить рандомную направленную силу к ресурсу, при его выходе.")] 
     private bool addRandomForceToResourceInOut = true;
@@ -110,11 +115,16 @@ public class StationsScript : MonoBehaviour
     private GameObject duck;
 
     private ResourceObject[] _sortPacksInPlayerHands;
+    private List<GameObject> _iconsOnDeliveryPanel = new List<GameObject>();
     private float _deliveryCost;
 
 
+    [Space]
+    [Header("Workshop Settings")]
+    [Space]
+    [SerializeField, Tooltip("Счетчик стоимости")] private TextMeshProUGUI workshopCostCount;
 
-    private ResourceStorage _storage;
+    private ResourceStorage _storage; // Инвентарь игрока
     private GameObject _player;
     private int _workLevel = 1; // Уровень добычи.
     private bool _working = false; // Работа станции. Если ИСТИНА - то работает таймер CycleTimer.
@@ -165,7 +175,6 @@ public class StationsScript : MonoBehaviour
 
         else if (isSorter)
         {
-            Debug.Log("SorterOk");
             SortResourceOut();
             _working = false;
         }
@@ -216,6 +225,11 @@ public class StationsScript : MonoBehaviour
         }
     }
 
+    public Transform GetWorkTransform()
+    {
+        return workPosition.transform;
+    }
+
     public Vector3 GetWorkPosition()
     {
         return workPosition.transform.position;
@@ -247,6 +261,11 @@ public class StationsScript : MonoBehaviour
                 }
             }
 
+            else if (isWorkshop)
+            {
+                mainPanel.SetActive(true);
+            }
+
             else
             {
                 if (workTimerImage != null)
@@ -257,19 +276,22 @@ public class StationsScript : MonoBehaviour
         // Если игрок ушел от станции:
         else
         {
-            if (workTimerImage != null)
+            if (!isDelivery) // Станция доставки работает независимо от нахождения в ней игрока
             {
-                workTimerImage.fillAmount = 0;
-                workTimerImage.gameObject.SetActive(false);
-            }
+                if (workTimerImage != null)
+                {
+                    workTimerImage.fillAmount = 0;
+                    workTimerImage.gameObject.SetActive(false);
+                }
 
-            if (isSorter)
-            {
-                ReturnDefaultSortValues();
-            }
+                if (isSorter)
+                {
+                    ReturnDefaultSortValues();
+                }
 
-            _timer = 0;
-            _working = false;
+                _timer = 0;
+                _working = false;
+            }
         }
     }
 
@@ -387,7 +409,6 @@ public class StationsScript : MonoBehaviour
     /// </summary>
     private void SortResourceOut()
     {
-        Debug.Log("OutResource");
         if (outResourcePrefab != null)
         {
             GameObject resource;
@@ -458,30 +479,29 @@ public class StationsScript : MonoBehaviour
     #region Delivery
     private void SetDeliveryStats()
     {
-        Debug.Log("Length packs: " + _sortPacksInPlayerHands.Length);
-
         for (int i = 0; i < _sortPacksInPlayerHands.Length; i++)
         {
             GameObject icon = Instantiate(deliveryResourceIconPrefab, deliveryResourcesPanel.transform);
 
+            _iconsOnDeliveryPanel.Add(icon);
+
             ResourceObject resObj = _sortPacksInPlayerHands[i];
-            float cost = Costs.CostOfResources.GetCostOfResource(resObj.typeOfResource, resObj.index);
+            float cost = Costs.CostOfResources.GetCostOfResource(resObj.typeOfResource, resObj.index) * (int)resObj.value;
 
-            icon.GetComponent<DeliveryResourcePrefabSettings>().SetIcon((int)resObj.value, cost * (int)resObj.value, resObj.GetSprite());
-
-            _deliveryCost += cost * resObj.value;
-            deliveryCostText.text = _deliveryCost.ToString();
+            icon.GetComponent<DeliveryResourceIconSettings>().SetIcon((int)resObj.value, cost, panelEvents.GetResourceSprite(resObj.typeOfResource, resObj.index));
+            _deliveryCost += cost;
         }
+
+        deliveryCostText.text = _deliveryCost.ToString();
     }
 
     public void ResetDeliveryStats()
     {
-        var icons = deliveryResourcesPanel.GetComponentsInChildren<Transform>();
-
-        foreach (var item in icons)
+        foreach (var item in _iconsOnDeliveryPanel)
         {
-            Destroy(item.gameObject);
+            Destroy(item);
         }
+        _iconsOnDeliveryPanel.Clear();
         _deliveryCost = 0;
         deliveryCostText.text = _deliveryCost.ToString();
     }
@@ -497,7 +517,7 @@ public class StationsScript : MonoBehaviour
         {
             Destroy(item.gameObject);
         }
-
+        ResetDeliveryStats();
         mainPanel.SetActive(false);
         workTimerImage.gameObject.SetActive(true);
         _working = true;

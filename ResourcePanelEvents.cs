@@ -92,13 +92,13 @@ public class ResourcePanelEvents : MonoBehaviour
         switch (resourceType)
         {
             case "Ore":
-                return oreButton[resourceIndex].GetComponent<Sprite>();
+                return oreButton[resourceIndex].GetComponent<Image>().sprite;
 
             case "Ingot":
-                return ingotButton[resourceIndex].GetComponent<Sprite>();
+                return ingotButton[resourceIndex].GetComponent<Image>().sprite;
 
             case "Product":
-                return productButton[resourceIndex].GetComponent<Sprite>();
+                return productButton[resourceIndex].GetComponent<Image>().sprite;
 
             default: return null;
         }

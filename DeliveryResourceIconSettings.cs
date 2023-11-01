@@ -5,7 +5,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Класс панели ресурса, отправляемого на продажу. Отображает количество, стоимость и спрайт ресурса в UI станции доставки
 /// </summary>
-public class DeliveryResourcePrefabSettings : MonoBehaviour
+public class DeliveryResourceIconSettings : MonoBehaviour
 {
     public TextMeshProUGUI countText;
     public TextMeshProUGUI costText;

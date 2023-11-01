@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -8,10 +9,18 @@ using UnityEngine.AI;
 public class PlayerController : MonoBehaviour
 {
     [SerializeField] public int toolLevel = 1;
-    [SerializeField] private GameObject moveTargetCursor;
+    [SerializeField, Tooltip("3D курсор направлени€ движени€")] private GameObject moveTargetCursor;
     [SerializeField, Range(0f, 10f)] private float selectedOutlineWidth = 2f;
     [SerializeField] private LayerMask RaycastLayers;
 
+    [Space]
+    [Header("UI Tooltips Settings")]
+    [SerializeField] private RectTransform tooltipOnUI;
+    [SerializeField] private TextMeshProUGUI tooltipText;
+    [SerializeField] private GameObject[] stations;
+    [SerializeField] private string[] selectedStationTooltipText;
+
+    private string _selectedStation;
     private Animator _anim;
     private NavMeshAgent _agent;
     private Outline _currentOutline;
@@ -31,7 +40,7 @@ public class PlayerController : MonoBehaviour
     {
         OnPathCompleted();
         RaycastOutline();
-
+        TooltipWork();
         if (Input.GetMouseButtonDown(1))
         {
             MouseSelectPosition();
@@ -50,6 +59,8 @@ public class PlayerController : MonoBehaviour
 
             if (hit.collider.GetComponent<Outline>() != null)
             {
+                _selectedStation = hit.collider.gameObject.name; // ѕолучение названи€ станции дл€ отображени€ соответствующей UI подсказки
+
                 if (!_outlineActive)
                 {
                     _currentOutline = hit.collider.GetComponent<Outline>();
@@ -60,8 +71,31 @@ public class PlayerController : MonoBehaviour
             else
             {
                 if (_currentOutline != null)
+                {
                     SetOutline(false);
+                }
             }
+        }
+    }
+
+    private void TooltipWork()
+    {
+        if (_outlineActive) // ѕодсказка включаетс€ при наведении курсора на станцию (станции подсвечиваютс€ при наведении курсорв)
+        {
+            for (int i = 0; i < selectedStationTooltipText.Length; i++)
+            {
+                if (_selectedStation == stations[i].name)
+                {
+                    tooltipText.text = selectedStationTooltipText[i];
+                    break;
+                }
+            }
+            tooltipOnUI.gameObject.SetActive(true);
+            tooltipOnUI.position = Input.mousePosition;
+        }
+        else // ≈сли станци€ не выделена подсветкой, подсказка выключаетс€
+        {
+            tooltipOnUI.gameObject.SetActive(false);
         }
     }
 
@@ -128,6 +162,8 @@ public class PlayerController : MonoBehaviour
             {
                 _currentStation.StationWork(true, toolLevel);
                 _runToStation = false;
+                transform.rotation = _currentStation.GetWorkTransform().rotation;
+
                 _anim.SetBool("IsRun", false);
                 _anim.SetBool("IsWork", true);
             }

@@ -12,11 +12,16 @@ public class DuckCourier : MonoBehaviour
 
     private GameObject _currentPack;
     private Vector3 _currentPosition;
-    private Animator anim;
+    private Animator _anim;
     private bool _isFlightBack = false;
     private bool _isFlight = false;
     private float _t = 0;
     private float _money = 0;
+
+    private void Start()
+    {
+        _anim = GetComponent<Animator>();
+    }
 
     private void Update()
     {
@@ -29,18 +34,15 @@ public class DuckCourier : MonoBehaviour
 
     private void DeliveryMovement()
     {
-        Vector3 nextMove = new Vector3(
-            transform.position.x + ((_currentPosition.x - transform.position.x) * (_t / timeToDelivery)),
-            transform.position.y + ((_currentPosition.y - transform.position.y) * (_t / timeToDelivery)),
-            transform.position.z + ((_currentPosition.z - transform.position.z) * (_t / timeToDelivery)));
-
-        transform.position = nextMove;
+        float speed = (_currentPosition - transform.position).normalized.magnitude / timeToDelivery;
+        transform.position = Vector3.MoveTowards(transform.position, _currentPosition, speed);
+        transform.LookAt(_currentPosition);
     }
     private void DeliveryTimer()
     {
         _t += Time.deltaTime;
 
-        if (_t >= timeToDelivery / 2 && !_isFlightBack)
+        if ((_t >= timeToDelivery / 2) && !_isFlightBack)
         {
             _currentPosition = startPosition.transform.position;
             Destroy(_currentPack);
@@ -50,24 +52,31 @@ public class DuckCourier : MonoBehaviour
             _isFlightBack = true;
         }
 
-        if (_t >= timeToDelivery / 2 && _isFlightBack)
+        if ((_t >= timeToDelivery / 2) && _isFlightBack)
         {
-            anim.SetBool("IsFlight", false);
+            _anim.SetBool("IsFlight", false);
 
             _currentPack.transform.SetParent(startPosition.transform);
             _currentPack.GetComponent<MoneyBag>().Drop(forceToDropMoney);
+
             _t = 0;
+
             _isFlightBack = false;
             _isFlight = false;
         }
     }
     public void SendCourier(float deliveryTime, float deliveryResourcesCost)
     {
-        anim.SetBool("IsFlight", true);
+        _anim.SetBool("IsFlight", true);
+
+        timeToDelivery = deliveryTime;
+        _money = deliveryResourcesCost;
 
         _currentPosition = endPosition.transform.position;
         _currentPack = Instantiate(resourcesBagPrefab, backpack.transform);
-        _money = deliveryResourcesCost;
+
         _isFlight = true;
+
+        DeliveryMovement();
     }
 }

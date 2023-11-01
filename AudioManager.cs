@@ -5,6 +5,7 @@ using UnityEngine;
 public class AudioManager : MonoBehaviour
 {
     [SerializeField] AudioSource clicksAudioSource;
+
     [SerializeField] AudioClip clickButtonClip;
     [SerializeField] AudioClip clickResourceClip;
 

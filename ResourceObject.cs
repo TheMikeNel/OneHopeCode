@@ -129,21 +129,4 @@ public class ResourceObject : MonoBehaviour
     {
         gameObject.GetComponent<Rigidbody>().AddForce(forceVector, ForceMode.Impulse);
     }
-
-    /// <summary>
-    /// ¬озвращает 2D спрайт текущего ресурса.
-    /// </summary>
-    /// <returns></returns>
-    public Sprite GetSprite()
-    {
-        if (_resourceSprite != null)
-        {
-            return _resourceSprite;
-        }
-
-        else
-        {
-            return FindFirstObjectByType<ResourcePanelEvents>().GetResourceSprite(typeOfResource, index);
-        }
-    }
 }

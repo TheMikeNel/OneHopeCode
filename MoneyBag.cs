@@ -12,7 +12,7 @@ public class MoneyBag : MonoBehaviour
         if (other.gameObject.CompareTag("Player"))
         {
             other.GetComponent<ResourceStorage>().AddCoins(moneyValue);
-            Instantiate(takeMoneyParticles);
+            Instantiate(takeMoneyParticles, other.transform.position, Quaternion.identity);
             Destroy(gameObject);
         }
     }
