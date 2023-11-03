@@ -1,4 +1,4 @@
-using System;
+using Costs;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -14,28 +14,28 @@ public class StationsScript : MonoBehaviour
     [SerializeField] private bool isSawmill = false;
     [SerializeField] private bool isWorkshop = false;
     [SerializeField] private bool isSorter = false;
-    //[SerializeField] private bool isFurnace = false;
-    //[SerializeField] private bool isFactory = false;
-
+    [SerializeField] private bool isFurnace = false;
+    [SerializeField] private bool isFactory = false;
 
     // Настройки вывода панели взаимодействия со станцией
     [Space]
     [Header("UI Settings")]
     [Space]
-
-    [SerializeField, Tooltip("UI панель взаимодействия со станцией.")]
+    [Tooltip("UI панель взаимодействия со станцией.")]
     public GameObject mainPanel;
 
-    [SerializeField, Tooltip("Изображение выбираемого для взаимодействия ресурса.")]
-    private Image selectedResourceImage;
+    [SerializeField, Tooltip("Префаб иконки ресурса (для отображения ресурсов в панелях взаимодействия)")]
+    private GameObject resourceIconPrefab;
 
+    [SerializeField, Tooltip("Окно ошибки, если игрок пытается применить взаимодействие со станцией при нехватке требуемых ресурсов")]
+    private GameObject errorPanel;
 
     // Настройки, действующие на ВСЕ типы производственных станций
     [Space]
     [Header("Main Settings")]
     [Space]
-    [SerializeField, Tooltip("Базовое значение количества выдаваемых ресурсов в одном префабе ресурса.")]
-    public float normalResourceDrop = 2f;
+    [Tooltip("Базовое значение количества выдаваемых ресурсов в одном префабе ресурса.")]
+    public float normalResourceDrop = 1f;
 
     [SerializeField, Tooltip("Время работы, необходимое для одной итерации производства.")] 
     private float workCycleTime = 4f;
@@ -52,9 +52,6 @@ public class StationsScript : MonoBehaviour
     [SerializeField, Tooltip("Префаб выходного ресурса.")] 
     private GameObject outResourcePrefab;
 
-    [SerializeField, Tooltip("Контейнер кнопок ресурсов инвентаря")]
-    private ResourcePanelEvents panelEvents;
-
     [SerializeField, Tooltip("Применить рандомную направленную силу к ресурсу, при его выходе.")] 
     private bool addRandomForceToResourceInOut = true;
 
@@ -63,6 +60,8 @@ public class StationsScript : MonoBehaviour
 
     [SerializeField, Tooltip("Максимальная сила.")] 
     private Vector3 maxForce = Vector3.up;
+
+    [HideInInspector] public int workLevel = 1; // Уровень добычи (Зависит от уровня инструмента игрока).
 
 
     // Настройки, действующие на станцию ДОБЫЧИ РУДЫ
@@ -79,6 +78,7 @@ public class StationsScript : MonoBehaviour
     private float oreRareFactor = 0.85f;
 
 
+
     // Настройки, действующие на станцию ДОБЫЧИ ДЕРЕВА
     [Space]
     [Header("Wood Settings")]
@@ -93,9 +93,9 @@ public class StationsScript : MonoBehaviour
     [Space]
     [SerializeField, Tooltip("Счетчик количества сортируемых ресурсов")]
     private TextMeshProUGUI countSortText;
-    private string _resSortType; // Хранение типа выбранного для сортировки ресурса
-    private int _resSortInd; // Хранение индекса выбранного для сортировки ресурса
-    private int _resSortValue; // Хранение количества ресурсов, подготавливаемых к сортировке
+
+    [SerializeField, Tooltip("Отображение выбранного ресурса в панели сортировки")]
+    private Image selectedResImage;
 
 
     // Настройки, действующие на станцию ДОСТАВКИ
@@ -108,41 +108,60 @@ public class StationsScript : MonoBehaviour
     [SerializeField, Tooltip("Индикатор итоговой выручки")]
     private TextMeshProUGUI deliveryCostText;
 
-    [SerializeField, Tooltip("Префаб иконки отправляемого ресурса (для отображения отправляемых ресурсов)")]
-    private GameObject deliveryResourceIconPrefab;
-
     [SerializeField, Tooltip("Курьер")]
     private GameObject duck;
 
     private ResourceObject[] _sortPacksInPlayerHands;
-    private List<GameObject> _iconsOnDeliveryPanel = new List<GameObject>();
+    private List<GameObject> _iconsOnDeliveryPanel = new();
     private float _deliveryCost;
 
 
+    // Настройки, действующие на ВЕРСТАК УЛУЧШЕНИЙ
     [Space]
     [Header("Workshop Settings")]
     [Space]
+    [SerializeField] private float npcWorkFactor = 1.2f;
     [SerializeField] private UpgradeButton rockUpButton;
     [SerializeField] private UpgradeButton sawmillUpButton;
     [SerializeField] private UpgradeButton toolUpButton;
 
-    [SerializeField, Tooltip("Счетчик стоимости улучшения")]
+    [Tooltip("Счетчик стоимости улучшения")]
     public TextMeshProUGUI upgradeCostText;
 
-    [SerializeField, Tooltip("Окно ошибки, если игрок пытается применить улучшение при недостаточном количестве денег")] 
-    private GameObject errorPanel;
-
-    [SerializeField, Tooltip("Скрипт спавна ботов")]
+    [Tooltip("Скрипт спавна ботов")]
     public NPCSpawn npcSpawner;
 
     [HideInInspector] public float _currentUpgradeCost = 0; // Текущее значение стоимости улучшения
     [HideInInspector] public int _currentUpgradeToolLevel; // Текущий предлагаемый уровень улучшения инструмента
-    [HideInInspector] public List<StationsScript> _currentUpgradeStations; // Текущие предлагаемые улучшения станций
+    [HideInInspector] public List<StationsScript> _currentUpgradeStations; // Контейнер станций, которые улучшаются (К ним будет присвоен рабочий NPC)
 
 
-    [HideInInspector] public int workLevel = 1; // Уровень добычи.
+    // Настройки, действующие на ПЛАВИЛЬНЮ и ЗАВОД
+    [Space]
+    [Header("Furnace And Factory Settings")]
+    [Space]
+    [SerializeField, Tooltip("Префабы изготавливаемых ресурсов")] 
+    private GameObject[] outResourcesPrefabs;
 
-    private int _workFactor = 1; // Параметр множителя работы. Зависит от количества работаемых на станции людей. (Прибавляется или вычитается при вызове метода StationWork)
+    [SerializeField, Tooltip("Панель требуемых для изготовления ресурсов")] 
+    private GameObject InResourcesPanel;
+
+    [SerializeField, Tooltip("Панель выходного ресурса")] 
+    private GameObject outResourcePanel;
+    
+    private ResourceIconSettings[] _currentInResIcon = new ResourceIconSettings[2]; // Контейнер иконок, требуемых для изготовления (Для изготовления всегда нужно 2 ресурса. Иконки создаются из шаблона-префаба иконки (задается в настройках UI))
+    private ResourceIconSettings _currentOutResIcon; // Иконка выходного ресурса.
+    private Vector4 _requireFurnaceResources = Vector4.zero; // Параметры требуемых ресурсов. Для изготавливаемого ресурса необходимо 4 параметра: индекс первого и второго ресурса, их количество (Принимается из контейнера CostOfResources)
+
+
+    private string _resType; // Хранение типа выбранного для взаимодействия ресурса
+    private int _resInd; // Хранение индекса выбранного для взаимодействия ресурса
+    private int _resValue; // Хранение количества ресурсов, подготавливаемых для взаимодействия
+
+
+    private bool _isNPCWorking = false;
+    private float _NPCWorkersCountFactor = 1; // Параметр множителя работы. Зависит от количества работаемых на станции людей. (Прибавляется при вызове метода StationWork)
+    private ResourcePanelEvents resourcesButtons; // контейнер кнопок и изображений ресурсов в инвентаре
     private ResourceStorage _storage; // Инвентарь игрока
     private GameObject _player;
     private PlayerController _playerController;
@@ -154,6 +173,7 @@ public class StationsScript : MonoBehaviour
         _player = GameObject.FindGameObjectWithTag("Player");
         _storage = _player.GetComponent<ResourceStorage>();
         _playerController = _player.GetComponent<PlayerController>();
+        resourcesButtons = FindFirstObjectByType<ResourcePanelEvents>();
     }
 
     void Update()
@@ -187,18 +207,12 @@ public class StationsScript : MonoBehaviour
     {
         if (isRock)
         {
-            for (int i = 0; i < _workFactor; i++)
-            {
-                RockMining();
-            }
+            RockMining();
         }
 
         else if (isSawmill)
         {
-            for (int i = 0; i < _workFactor; i++)
-            {
-                ResourceOut(woodProductionFactorOnLevel[workLevel] * normalResourceDrop);
-            }
+            ResourceOut(woodProductionFactorOnLevel[workLevel - 1] * normalResourceDrop * _NPCWorkersCountFactor);
         }
 
         else if (isSorter)
@@ -213,20 +227,23 @@ public class StationsScript : MonoBehaviour
             workTimerImage.gameObject.SetActive(false);
             _working = false;
         }
+
+        else if (isFurnace || isFactory)
+        {
+            ProductionEnded();
+            workTimerImage.fillAmount = 0f;
+            workTimerImage.gameObject.SetActive(false);
+            _working = false;
+        }
         else ResourceOut();
     }
 
-
-    public Transform GetWorkTransform()
-    {
-        return workPosition.transform;
-    }
-
-    public Vector3 GetWorkPosition()
-    {
-        return workPosition.transform.position;
-    }
-
+    /// <summary>
+    /// Включение / выключение работы станции
+    /// </summary>
+    /// <param name="isWork">Включение / выключение</param>
+    /// <param name="level">Уровень работы (Уровень инструмента игрока</param>
+    /// <param name="workerTag">Тег рабочего (Если в станции работают NPC, станция не выключается)</param>
     public void StationWork(bool isWork, int level, string workerTag)
     {
         workLevel = level;
@@ -234,16 +251,16 @@ public class StationsScript : MonoBehaviour
         // Если игрок подошел к станции и работает с ней:
         if (isWork)
         {
+            if (mainPanel != null) mainPanel.SetActive(true);
+
             if (isSorter)
             {
-                _resSortValue = 0;
-                countSortText.text = _resSortValue.ToString();
-                mainPanel.SetActive(true);
+                _resValue = 0;
+                countSortText.text = _resValue.ToString();
             }
 
             else if (isDelivery)
             {
-                mainPanel.SetActive(true);
 
                 if (_storage.playerHands.GetComponentInChildren<ResourceObject>() != null)
                 {
@@ -253,7 +270,7 @@ public class StationsScript : MonoBehaviour
                 }
             }
 
-            else if (isWorkshop)
+            else if (isFurnace || isFactory)
             {
                 mainPanel.SetActive(true);
             }
@@ -264,14 +281,19 @@ public class StationsScript : MonoBehaviour
                     workTimerImage.gameObject.SetActive(true);
                 _working = true;
             }
+
             if (workerTag == "NPC")
-                _workFactor++;
+            {
+                _NPCWorkersCountFactor *= npcWorkFactor;
+                normalResourceDrop *= _NPCWorkersCountFactor; // Количество руды увеличивается при работе NPC
+                _isNPCWorking = true;
+            }
         }
 
         // Если игрок ушел от станции:
         else
         {
-            if (!isDelivery) // Станция доставки работает независимо от нахождения в ней игрока
+            if (!isDelivery && !isFactory && !isFurnace) // Станция доставки, плавильня и завод работают независимо от нахождения в них игрока
             {
                 if (workTimerImage != null)
                 {
@@ -286,11 +308,13 @@ public class StationsScript : MonoBehaviour
 
                 if (isWorkshop)
                 {
-                    ReturnUpdateSettings();
+                    ReturnUpgradeSettings();
                 }
 
                 _timer = 0;
-                _working = false;
+
+                if (!_isNPCWorking) // Если игрок ушел от станции и на ней не работают NPC
+                    _working = false;
             }
 
             if (mainPanel != null) mainPanel.SetActive(false);
@@ -298,7 +322,7 @@ public class StationsScript : MonoBehaviour
     }
 
 
-    // Получить разрешение на перемещение (Если при работе со станцией не открывается меню взаимодействия, возвращает true. Иначе - false).
+    // Получить разрешение на перемещение (Если при работе со станцией открывается меню взаимодействия, перемещаться нельзя).
     public bool GetPermissionToMove()
     {
         if (mainPanel != null)
@@ -308,6 +332,39 @@ public class StationsScript : MonoBehaviour
         else return true;
     }
 
+
+    /// <summary>
+    /// Получение выбранного в инвентаре ресурса, с которым будет происходить взаимодействие (Вызывается в ResourcePanelEvents на EventSystem, при нажатии на кнопки ресурсов).
+    /// </summary>
+    /// <param name="image">Изображение ресурса, для вывода в окно отображения активного ресурса в станции</param>
+    /// <param name="type">Тип ресурса (Ore, Ingot, Product). Задается тегом объекта.</param>
+    /// <param name="index">Индекс ресурса конкретного типа в системе хранения ресурсов.</param>
+    public void SetSettingsOfSelectedResource(Image image, string type, int index)
+    {
+        _resType = type;
+        _resInd = index;
+
+        if (isSorter)
+        {
+            selectedResImage.sprite = image.sprite;
+        }
+        else if (isFurnace || isFactory)
+        {
+            _resValue = 1;
+            if (_currentOutResIcon == null)
+            {
+                _currentOutResIcon = Instantiate(resourceIconPrefab, outResourcePanel.transform).GetComponent<ResourceIconSettings>();
+                _currentInResIcon[0] = Instantiate(resourceIconPrefab, InResourcesPanel.transform).GetComponent<ResourceIconSettings>();
+                _currentInResIcon[1] = Instantiate(resourceIconPrefab, InResourcesPanel.transform).GetComponent<ResourceIconSettings>();
+                CalculateStationRequireResources(_resInd);
+            }
+
+            else
+            {
+                CalculateStationRequireResources(_resInd);
+            }
+        }
+    }
 
 
     #region Workshop Upgrade Methods
@@ -336,7 +393,7 @@ public class StationsScript : MonoBehaviour
     {
         if ((_storage.GetCoins() - _currentUpgradeCost) >= 0) // Если хватает денег, происходит улучшение
         {
-            if (_currentUpgradeToolLevel > _playerController.toolLevel)
+            if (_currentUpgradeToolLevel > _playerController.toolLevel) // Если есть улучшение инструмента, инструмент игрока улучшается
             {
                 _playerController.UpgradeTool(_currentUpgradeToolLevel);
                 workLevel = _currentUpgradeToolLevel;
@@ -354,9 +411,9 @@ public class StationsScript : MonoBehaviour
             }
             _storage.AddCoins(-_currentUpgradeCost);
 
-            if (_currentUpgradeToolLevel > _playerController.toolsOnLevelPrefabs.Length) Destroy(toolUpButton.gameObject); // Если уровень инструмента максимальный - улучшение невозможно.
+            if (_currentUpgradeToolLevel > _playerController.toolsOnLevelPrefabs.Length - 1) Destroy(toolUpButton.gameObject); // Если уровень инструмента максимальный - улучшение невозможно.
 
-            ReturnUpdateSettings();
+            ReturnUpgradeSettings();
             mainPanel.SetActive(false);
             _working = false;
         }
@@ -367,7 +424,7 @@ public class StationsScript : MonoBehaviour
         }
     }
 
-    public void ReturnUpdateSettings()
+    public void ReturnUpgradeSettings()
     {
         _currentUpgradeStations.Clear();
         _currentUpgradeCost = 0;
@@ -399,19 +456,18 @@ public class StationsScript : MonoBehaviour
 
             else
             {
-                resource = Instantiate(outResourcePrefab, gameObject.transform);
+                resource = Instantiate(outResourcePrefab, transform);
             }
 
             valueWithRare *= Random.Range(0, normalResourceDrop * miningFactorOnLevel[workLevel - 1]);
-            ResourceObject resSc = resource.GetComponent<ResourceObject>();
 
-            if (resSc != null)
+            if (resource.TryGetComponent(out ResourceObject resSc))
             {
                 resSc.SetResourceValues(index, valueWithRare);
 
                 if (addRandomForceToResourceInOut)
                 {
-                    Vector3 forceVec = new Vector3(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
+                    Vector3 forceVec = new(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
                     resSc.AddForceToResourceOut(forceVec);
                 }
             }
@@ -431,18 +487,16 @@ public class StationsScript : MonoBehaviour
 
             else
             {
-                resource = Instantiate(outResourcePrefab, gameObject.transform);
+                resource = Instantiate(outResourcePrefab, transform);
             }
 
-            ResourceObject resSc = resource.GetComponent<ResourceObject>();
-
-            if (resSc != null)
+            if (resource.TryGetComponent(out ResourceObject resSc))
             {
                 resSc.SetResourceValues(value);
 
                 if (addRandomForceToResourceInOut)
                 {
-                    Vector3 forceVec = new Vector3(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
+                    Vector3 forceVec = new(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
                     resSc.AddForceToResourceOut(forceVec);
                 }
             }            
@@ -458,15 +512,13 @@ public class StationsScript : MonoBehaviour
 
             if (resourceOutPoint != null) resource = Instantiate(outResourcePrefab, resourceOutPoint.transform);
 
-            else resource = Instantiate(outResourcePrefab, gameObject.transform);
+            else resource = Instantiate(outResourcePrefab, transform);
 
-            ResourceObject resSc = resource.GetComponent<ResourceObject>();
-
-            if (resSc != null)
+            if (resource.TryGetComponent(out ResourceObject resSc))
             {
                 if (addRandomForceToResourceInOut)
                 {
-                    Vector3 forceVec = new Vector3(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
+                    Vector3 forceVec = new(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
                     resSc.AddForceToResourceOut(forceVec);
                 }
             }
@@ -480,7 +532,6 @@ public class StationsScript : MonoBehaviour
     private void RockMining()
     {
         float rare = 1;
-
         if (workLevel == 1)
         {
             ResourceOut(0, rare);
@@ -518,12 +569,12 @@ public class StationsScript : MonoBehaviour
 
 
     #region Sort Station Methods
-    /// <summary>
-    /// Метод вызывается нажатием кнопки на UI панели сортировочной станции. Тем самым запускается работа сортировки и закрывается UI панель.
-    /// </summary>
-    public void DoSort()
+        /// <summary>
+        /// Метод вызывается нажатием кнопки на UI панели сортировочной станции. Тем самым запускается работа сортировки и закрывается UI панель.
+        /// </summary>
+        public void DoSort()
     {
-        if (_resSortValue > 0)
+        if (_resValue > 0)
         {
             if (workTimerImage != null)
                 workTimerImage.gameObject.SetActive(true);
@@ -542,24 +593,22 @@ public class StationsScript : MonoBehaviour
             GameObject resource;
 
             if (resourceOutPoint != null) resource = Instantiate(outResourcePrefab, resourceOutPoint.transform);
-            else resource = Instantiate(outResourcePrefab, gameObject.transform);
+            else resource = Instantiate(outResourcePrefab, transform);
 
-            ResourceObject resSc = resource.GetComponent<ResourceObject>();
-
-            if (resSc != null)
+            if (resource.TryGetComponent(out ResourceObject resSc))
             {
-                resSc.SetResourceValues(_resSortType, _resSortInd, _resSortValue);
+                resSc.SetResourceValues(_resType, _resInd, _resValue);
 
-                _storage.AddResourceByType(_resSortType, _resSortInd, _resSortValue * -1);
+                _storage.AddResourceByType(_resType, _resInd, _resValue * -1);
 
                 if (addRandomForceToResourceInOut)
                 {
-                    Vector3 forceVec = new Vector3(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
+                    Vector3 forceVec = new(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
                     resSc.AddForceToResourceOut(forceVec);
                 }
             }
         }
-        _resSortValue = 0;
+        _resValue = 0;
     }
 
     /// <summary>
@@ -568,55 +617,43 @@ public class StationsScript : MonoBehaviour
     /// <param name="value">Прибавляемое значение</param>
     public void AddSortResource(int value)
     {
-        if (value < 0 && _resSortValue + value >= 0)
-            _resSortValue += value;
+        if (value < 0 && _resValue + value >= 0)
+            _resValue += value;
 
-        if (value > 0 && _storage.GetResourceByType(_resSortType, _resSortInd) - ((float)value + (float)_resSortValue) >= 0)
+        if (value > 0 && _storage.GetResourceByType(_resType, _resInd) - ((float)value + (float)_resValue) >= 0)
         {
-            _resSortValue += value;
+            _resValue += value;
         }
 
-        countSortText.text = _resSortValue.ToString();
+        countSortText.text = _resValue.ToString();
     }
 
-    /// <summary>
-    /// Получение выбранного в инвентаре ресурса, с которым будет происходить взаимодействие (Вызывается в ResourcePanelEvents на EventSystem, при нажатии на кнопки ресурсов).
-    /// </summary>
-    /// <param name="image">Изображение ресурса, для вывода в окно отображения активного ресурса в станции</param>
-    /// <param name="type">Тип ресурса (Ore, Ingot, Product). Задается тегом объекта.</param>
-    /// <param name="index">Индекс ресурса конкретного типа в системе хранения ресурсов.</param>
-    public void SetSettingsOfSelectedResource(Image image, string type, int index)
-    {
-        selectedResourceImage.sprite = image.sprite;
-        _resSortType = type;
-        _resSortInd = index;
-    }
 
     /// <summary>
     /// Возврат значений, заданных при сортировке, в стандартное состояние
     /// </summary>
     public void ReturnDefaultSortValues()
     {
-        _resSortValue = 0;
+        _resValue = 0;
         countSortText.text = "0";
     }
     #endregion
 
 
 
-    #region Delivery
+    #region Delivery Methods
     private void SetDeliveryStats()
     {
         for (int i = 0; i < _sortPacksInPlayerHands.Length; i++)
         {
-            GameObject icon = Instantiate(deliveryResourceIconPrefab, deliveryResourcesPanel.transform);
+            GameObject icon = Instantiate(resourceIconPrefab, deliveryResourcesPanel.transform);
 
             _iconsOnDeliveryPanel.Add(icon);
 
             ResourceObject resObj = _sortPacksInPlayerHands[i];
-            float cost = Costs.CostOfResources.GetCostOfResource(resObj.typeOfResource, resObj.index) * (int)resObj.value;
+            float cost = CostOfResources.GetCostOfResource(resObj.typeOfResource, resObj.index) * (int)resObj.value;
 
-            icon.GetComponent<DeliveryResourceIconSettings>().SetIcon((int)resObj.value, cost, panelEvents.GetResourceSprite(resObj.typeOfResource, resObj.index));
+            icon.GetComponent<ResourceIconSettings>().SetIcon((int)resObj.value, cost, resourcesButtons.GetResourceSprite(resObj.typeOfResource, resObj.index));
             _deliveryCost += cost;
         }
 
@@ -651,4 +688,115 @@ public class StationsScript : MonoBehaviour
         _working = true;
     }
     #endregion
+
+
+
+    #region Furnace And Factory Methods
+    private void FurnaceAndFactoryOut() 
+    {
+        GameObject resource;
+
+        resource = Instantiate(outResourcesPrefabs[_resInd], resourceOutPoint.transform);
+
+        if (resource.TryGetComponent(out ResourceObject resSc))
+        {
+            resSc.SetResourceValues(_resValue);
+
+            if (addRandomForceToResourceInOut)
+            {
+                Vector3 forceVec = new(Random.Range(minForce.x, maxForce.x), Random.Range(minForce.x, maxForce.y), Random.Range(minForce.x, maxForce.z));
+                resSc.AddForceToResourceOut(forceVec);
+            }
+        }
+    }
+
+    private void CalculateStationRequireResources(int resourceIndex)
+    {
+        _currentOutResIcon.GetComponent<ResourceIconSettings>().SetIcon(_resValue, 0, resourcesButtons.GetResourceSprite(_resType, _resInd));
+        _requireFurnaceResources = CostOfResources.GetCostToProduction(_resType, resourceIndex);
+
+        if (_resType == "Ingot") // Для производства слитков необходимо 2 вида сырой руды
+        {
+            _currentInResIcon[0].SetIcon((int)_requireFurnaceResources.y * _resValue, 0, resourcesButtons.GetResourceSprite("Ore", (int)_requireFurnaceResources.x));
+            _currentInResIcon[1].SetIcon((int)_requireFurnaceResources.w * _resValue, 0, resourcesButtons.GetResourceSprite("Ore", (int)_requireFurnaceResources.z));
+        }
+        else if (_resType == "Product") // Для производства товаров необходим 1 вид сырой руды и 1 вид слитка
+        {
+            _currentInResIcon[0].SetIcon((int)_requireFurnaceResources.y * _resValue, 0, resourcesButtons.GetResourceSprite("Ore", (int)_requireFurnaceResources.x));
+            _currentInResIcon[1].SetIcon((int)_requireFurnaceResources.w * _resValue, 0, resourcesButtons.GetResourceSprite("Ingot", (int)_requireFurnaceResources.z));
+        }
+    }
+
+    public void ProductionEnded()
+    {
+        FurnaceAndFactoryOut();
+        ReturnDefaultProductionSettings();
+    }
+
+    public void ApplyProduction()
+    {
+        // Если хватает ресурсов для ПЕРЕПЛАВКИ, работа запускается
+        if (isFurnace &&
+            _requireFurnaceResources.y * _resValue <= _storage.GetOre((int)_requireFurnaceResources.x) &&
+            _requireFurnaceResources.w * _resValue <= _storage.GetOre((int)_requireFurnaceResources.z))
+        {
+            _storage.AddOre((int)_requireFurnaceResources.x, -_requireFurnaceResources.y * _resValue);
+            _storage.AddOre((int)_requireFurnaceResources.z, -_requireFurnaceResources.w * _resValue);
+
+            workTimerImage.gameObject.SetActive(true);
+            _working = true;
+            mainPanel.SetActive(false);
+        }
+        // Если хватает ресурсов для ИЗГОТОВЛЕНИЯ ТОВАРОВ, работа запускается
+        else if (isFactory &&
+            _requireFurnaceResources.y * _resValue <= _storage.GetOre((int)_requireFurnaceResources.x) &&
+            _requireFurnaceResources.w * _resValue <= _storage.GetIngot((int)_requireFurnaceResources.z))
+        {
+            _storage.AddOre((int)_requireFurnaceResources.x, -_requireFurnaceResources.y * _resValue);
+            _storage.AddIngot((int)_requireFurnaceResources.z, -_requireFurnaceResources.w * _resValue);
+
+            workTimerImage.gameObject.SetActive(true);
+            _working = true;
+            mainPanel.SetActive(false);
+        }
+        // Иначе, выводится окно с ошибкой о нехватке ресурсов
+        else errorPanel.SetActive(true);
+    }
+
+    public void AddProductionResource(int value)
+    {
+        if (value < 0 && _resValue + value >= 1)
+            _resValue += value;
+
+        else if (value > 0)
+            _resValue += value;
+
+        CalculateStationRequireResources(_resInd);
+    }
+
+    /// <summary>
+    /// Обнулить работу с производственной станцией
+    /// </summary>
+    public void ReturnDefaultProductionSettings()
+    {
+        if (_currentOutResIcon != null)
+        {
+            Destroy(_currentOutResIcon.gameObject);
+            Destroy(_currentInResIcon[0].gameObject);
+            Destroy(_currentInResIcon[1].gameObject);
+            _requireFurnaceResources = Vector4.zero;
+        }
+    }
+    #endregion
+
+
+    public Transform GetWorkTransform()
+    {
+        return workPosition.transform;
+    }
+
+    public Vector3 GetWorkPosition()
+    {
+        return workPosition.transform.position;
+    }
 }

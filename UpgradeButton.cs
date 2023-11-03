@@ -9,13 +9,12 @@ public class UpgradeButton : MonoBehaviour
 
     [SerializeField] private bool isTool = false;
     [SerializeField] private float[] costOnToolLevels = { 50f, 150f, 300f };
+
     [Space]
 
     [SerializeField] private bool isStation = false;
     [SerializeField] private StationsScript upgradeStation;
     [SerializeField] private float costOfUpgrade;
-    [SerializeField, Tooltip("Множитель стоимости улучшения (при каждом улучшении, стоимость увеличивается на этот фактор")] 
-
     public bool isActiveUpgrade = false;
 
     private void OnEnable()

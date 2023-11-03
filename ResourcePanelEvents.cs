@@ -4,6 +4,8 @@ using UnityEngine.UI;
 public class ResourcePanelEvents : MonoBehaviour
 {
     [SerializeField] private StationsScript sortStation;
+    [SerializeField] private StationsScript furnaceStation;
+    [SerializeField] private StationsScript factoryStation;
 
     [SerializeField, Tooltip(" нопки сырь€ на панели игрового интерфейса (должны соответствовать индексации в системе хранени€!).")] 
     private GameObject[] oreButton = new GameObject[7];
@@ -70,6 +72,15 @@ public class ResourcePanelEvents : MonoBehaviour
             sortStation.ReturnDefaultSortValues();
             sortStation.SetSettingsOfSelectedResource(_activeResImage, _activeResType, _activeResIndex);
         }
+
+        else if (furnaceStation.mainPanel.activeSelf == true && _activeResType == "Ingot")
+        {
+            furnaceStation.SetSettingsOfSelectedResource(_activeResImage, _activeResType, _activeResIndex);
+        }
+        else if (factoryStation.mainPanel.activeSelf == true && _activeResType == "Product")
+        {
+            factoryStation.SetSettingsOfSelectedResource(_activeResImage, _activeResType, _activeResIndex);
+        }
     }
 
     public int GetActiveResourceIndexInStorage()
@@ -89,18 +100,12 @@ public class ResourcePanelEvents : MonoBehaviour
 
     public Sprite GetResourceSprite(string resourceType, int resourceIndex)
     {
-        switch (resourceType)
+        return resourceType switch
         {
-            case "Ore":
-                return oreButton[resourceIndex].GetComponent<Image>().sprite;
-
-            case "Ingot":
-                return ingotButton[resourceIndex].GetComponent<Image>().sprite;
-
-            case "Product":
-                return productButton[resourceIndex].GetComponent<Image>().sprite;
-
-            default: return null;
-        }
+            "Ore" => oreButton[resourceIndex].GetComponent<Image>().sprite,
+            "Ingot" => ingotButton[resourceIndex].GetComponent<Image>().sprite,
+            "Product" => productButton[resourceIndex].GetComponent<Image>().sprite,
+            _ => null,
+        };
     }
 }

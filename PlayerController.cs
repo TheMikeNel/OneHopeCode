@@ -8,9 +8,9 @@ using UnityEngine.AI;
 
 public class PlayerController : MonoBehaviour
 {
-    [SerializeField] public int toolLevel = 1;
-    [SerializeField] public GameObject toolAnchor;
-    [SerializeField] public GameObject[] toolsOnLevelPrefabs = new GameObject[4];
+    public int toolLevel = 1;
+    public GameObject toolAnchor;
+    public GameObject[] toolsOnLevelPrefabs = new GameObject[4];
 
     [SerializeField, Tooltip("3D курсор направления движения (при надобности)")] private GameObject moveTargetCursor;
     [SerializeField, Range(0f, 10f)] private float selectedOutlineWidth = 2f;
@@ -65,9 +65,8 @@ public class PlayerController : MonoBehaviour
     private void RaycastOutline()
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, 150, RaycastLayers))
+        if (Physics.Raycast(ray, out RaycastHit hit, 150, RaycastLayers))
         {
 
             if (hit.collider.GetComponent<Outline>() != null)
@@ -97,9 +96,8 @@ public class PlayerController : MonoBehaviour
     private void MouseSelectPosition()
     {
         Ray movingRay = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit movingRayHit;
 
-        if (Physics.Raycast(movingRay, out movingRayHit, 150, RaycastLayers))
+        if (Physics.Raycast(movingRay, out RaycastHit movingRayHit, 150, RaycastLayers))
         {
             switch (movingRayHit.transform.gameObject.tag) // Проверка позиции, к которой должен пойти игрок
             {
@@ -110,7 +108,7 @@ public class PlayerController : MonoBehaviour
                 case "Station": // Если игрок выбрал перемещение к какой-либо постройке, выполняется метод перемещения к позиции рабочего места данной постройки
                     _justRun = true;
                     MovingToStations(movingRayHit.collider.gameObject);
-                    break; 
+                    break;
             }
         }
     }
@@ -148,7 +146,14 @@ public class PlayerController : MonoBehaviour
 
         if (_currentStation != null) _currentStation.StationWork(false, toolLevel, tag);
 
+        if (moveTargetCursor != null)
+        {
+            moveTargetCursor.SetActive(true);
+            moveTargetCursor.transform.position = target;
+        }
+
         _agent.destination = target;
+
         _anim.SetBool("IsWork", false);
         _anim.SetBool("IsRun", true);
     }
@@ -160,17 +165,18 @@ public class PlayerController : MonoBehaviour
     /// <param name="station">Объект станции, к которой движется игроу</param>
     private void MovingToStations(GameObject station)
     {
-        if (_currentStation != null) _currentStation.StationWork(false, toolLevel, tag);
+        if (_currentStation != null) _currentStation.StationWork(false, toolLevel, tag); // Отключение станции, на которой работал игрок, если он переключился сразу на другую.
 
-        _currentStation = station.GetComponent<StationsScript>();
-
-        if (_currentStation != null)
+        
+        if (station.TryGetComponent(out _currentStation))
         {
             _agent.destination = _currentStation.GetWorkPosition();
             _runToStation = true;
             _anim.SetBool("IsWork", false);
             _anim.SetBool("IsRun", true);
         }
+
+        if (moveTargetCursor != null && moveTargetCursor.activeSelf == true) moveTargetCursor.SetActive(false);
     }
 
     // Метод, вызываемый когда игрок достиг цели
